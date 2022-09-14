@@ -11,6 +11,14 @@
 static void cons_intr(int (*proc)(void));
 static void cons_putc(int c);
 
+/* Something that can make the console colorful */
+
+#define COLORIZE(foreground_color, background_color, character) (int)(((foreground_color << 8) + (background_color << 12)) | (character & 0xff))
+
+static int foreground_color = 0x7; // light gray
+static int background_color = 0; // black
+
+
 // Stupid I/O delay routine necessitated by historical PC design flaws
 static void
 delay(void)
@@ -129,6 +137,20 @@ static unsigned addr_6845;
 static uint16_t *crt_buf;
 static uint16_t crt_pos;
 
+int cga_set_color(int foreground_color_, int background_color_){
+	if(foreground_color_ >= 0 && foreground_color_ <= 0xf){
+		foreground_color = foreground_color_;
+	} else {
+		return -1;
+	}
+	if(background_color_ >=0 && background_color_ <= 0xf){
+		background_color = background_color_;
+	} else {
+		return -2;
+	}
+	return 0;
+}
+
 static void
 cga_init(void)
 {
@@ -162,9 +184,8 @@ cga_init(void)
 static void
 cga_putc(int c)
 {
-	// if no attribute given, then use black on white
-	if (!(c & ~0xFF))
-		c |= 0x0700;
+
+	c = COLORIZE(foreground_color, background_color, c);
 
 	switch (c & 0xff) {
 	case '\b':
@@ -174,6 +195,9 @@ cga_putc(int c)
 		}
 		break;
 	case '\n':
+		for(int i=crt_pos;i<((crt_pos / CRT_ROWS)+1) * CRT_COLS; ++i){
+			crt_buf[i] = COLORIZE(foreground_color, background_color, ' ');
+		}
 		crt_pos += CRT_COLS;
 		/* fallthru */
 	case '\r':
@@ -187,7 +211,7 @@ cga_putc(int c)
 		cons_putc(' ');
 		break;
 	default:
-		crt_buf[crt_pos++] = c;		/* write the character */
+		crt_buf[crt_pos++] = COLORIZE(foreground_color, background_color, c);		/* write the character */
 		break;
 	}
 
@@ -197,7 +221,7 @@ cga_putc(int c)
 
 		memmove(crt_buf, crt_buf + CRT_COLS, (CRT_SIZE - CRT_COLS) * sizeof(uint16_t));
 		for (i = CRT_SIZE - CRT_COLS; i < CRT_SIZE; i++)
-			crt_buf[i] = 0x0700 | ' ';
+			crt_buf[i] = COLORIZE(LightGray, Black, ' ');
 		crt_pos -= CRT_COLS;
 	}
 
@@ -426,6 +450,36 @@ cons_getc(void)
 		return c;
 	}
 	return 0;
+}
+
+// for colorize the serial I/O
+
+int vga_format_to_esc_color_format[] = {
+	'0', '4', '2', '6', '1', '5', '3', '7',
+	'0', '4', '2', '6', '1', '5', '3', '7',
+};
+
+void serial_set_color(int fgc, int bgc){
+	if(fgc < 0 || fgc > 0xf) return;
+	serial_putc('\e');
+	serial_putc('[');
+	serial_putc('3');
+	serial_putc(vga_format_to_esc_color_format[fgc]);
+	if(bgc < 0 || bgc > 0xf){
+		serial_putc('m');
+		return;
+	}
+	serial_putc(';');
+	serial_putc('4');
+	serial_putc(vga_format_to_esc_color_format[bgc]);
+	serial_putc('m');
+}
+
+void serial_default_color(){
+	serial_putc('\e');
+	serial_putc('[');
+	serial_putc('0');
+	serial_putc('m');
 }
 
 // output a character to the console
