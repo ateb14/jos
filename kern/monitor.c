@@ -35,8 +35,10 @@ mon_colors(int argc, char **argv, struct Trapframe *tf){
 	for(int i=0;i<=0xf;++i){
 		for(int j=0;j<=0xf;++j){
 			set_color(i,j);
-			cprintf("T");
+			cprintf(" %2d ",i+j);
 		}
+		back_to_default_color();
+		cprintf("\n");
 	}
 	back_to_default_color();
 	cprintf("\n");

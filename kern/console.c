@@ -151,6 +151,11 @@ int cga_set_color(int foreground_color_, int background_color_){
 	return 0;
 }
 
+void cga_back_to_default_color(){
+	foreground_color = 0x7;
+	background_color = 0;
+}
+
 static void
 cga_init(void)
 {
@@ -463,6 +468,10 @@ void serial_set_color(int fgc, int bgc){
 	if(fgc < 0 || fgc > 0xf) return;
 	serial_putc('\e');
 	serial_putc('[');
+	if(fgc >= 0x8){
+		serial_putc('1');
+		serial_putc(';');
+	}
 	serial_putc('3');
 	serial_putc(vga_format_to_esc_color_format[fgc]);
 	if(bgc < 0 || bgc > 0xf){

@@ -33,6 +33,7 @@ void	cputchar(int c);
 int	getchar(void);
 int	iscons(int fd);
 int cga_set_color(int foreground_color_, int background_color_);
+void cga_back_to_default_color();
 void serial_set_color(int fgc, int bgc);
 void serial_default_color();
 

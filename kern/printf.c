@@ -42,5 +42,5 @@ int set_color(enum COLOR foreground_color, enum COLOR background_color){
 
 void back_to_default_color(){
 	serial_default_color();
-	cga_set_color(LightGray, Black);
+	cga_back_to_default_color();
 }
