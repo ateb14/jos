@@ -9,6 +9,8 @@ readline(const char *prompt)
 {
 	int i, c, echoing;
 
+	back_to_default_color();
+
 	if (prompt != NULL)
 		cprintf("%s", prompt);
 

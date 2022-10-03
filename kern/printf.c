@@ -35,3 +35,12 @@ cprintf(const char *fmt, ...)
 	return cnt;
 }
 
+int set_color(enum COLOR foreground_color, enum COLOR background_color){
+	serial_set_color(foreground_color, background_color);
+	return cga_set_color(foreground_color, background_color);
+}
+
+void back_to_default_color(){
+	serial_default_color();
+	cga_back_to_default_color();
+}
