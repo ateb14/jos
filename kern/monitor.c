@@ -128,10 +128,10 @@ mon_setpagepermission(int argc, char **argv, struct Trapframe *tf){
 	if(argc <= 2){
 		cprintf("usage: spp <vm_addr> <mode> <permission1> <permission2>...\n");
 		cprintf("modes: clear, cover, add, delete\n");
-		cprintf("permissions: W, U");
+		cprintf("permissions: W, U\n");
 		return 0;
 	}
-	uintptr_t vm_addr = (uintptr_t)strtol(argv[1], NULL, 16);
+	uintptr_t vm_addr = (uintptr_t)strtol(argv[1], NULL, 0);
 	pte_t *pte = pgdir_walk(kern_pgdir, (void *)vm_addr, false);
 	if(!pte || !(*pte & PTE_P)){
 		cprintf("The mapping doesn't exist!\n");
@@ -170,17 +170,20 @@ mon_showmappings(int argc, char **argv, struct Trapframe *tf){
 		cprintf("usage: sm <vm_left> <optional: vm_right>/<optional: +page_offset> <optional: r>(round down to page size)\n");
 		return 0;
 	}
-	uintptr_t vm_left = (uintptr_t)strtol(argv[1], NULL, 16);
+	uintptr_t vm_left = (uintptr_t)strtol(argv[1], NULL, 0);
 	uintptr_t vm_right = vm_left;
 	char ctrl = 0;
 	if(argc >= 3){
 		if(argv[2][0] >= '0' && argv[2][0] <= '9'){
-			vm_right = (uintptr_t)strtol(argv[2], NULL, 16);
+			vm_right = (uintptr_t)strtol(argv[2], NULL, 0);
 		} else{
 			ctrl = argv[2][0];
 		}
 		if(ctrl == '+'){
-			vm_right = vm_left + (uintptr_t)strtol(argv[2]+1, NULL, 10) * PGSIZE;
+			vm_right = vm_left + (uintptr_t)strtol(argv[2]+1, NULL, 0) * PGSIZE;
+			if(vm_right < vm_left){ // overflow
+				vm_right = 0xfffff000 + PGOFF(vm_left);
+			}
 		}
 	}
 	if(argc >= 4){
@@ -197,10 +200,13 @@ mon_showmappings(int argc, char **argv, struct Trapframe *tf){
 	}
 	uintptr_t vm;
 	bool only_show_once_flag = false;
-	for(vm = vm_left;vm<=vm_right;vm+=PGSIZE){
+	size_t times = (vm_right - vm_left) / PGSIZE + 1;
+	size_t i = 0;
+	for(vm = vm_left; i < times; vm+=PGSIZE, ++i){
 		pte_t *pte = pgdir_walk(kern_pgdir, (void *)vm, false);
 		if(pte && (*pte & PTE_P)){
-			cprintf("VA:0x%08x\tPA:0x%08x\tW:%d U:%d\n", vm, PTE_ADDR(*pte)+PGOFF(vm), !!(*pte & PTE_W), !!(*pte & PTE_U));
+			physaddr_t pa = *pte & PTE_PS ? PDE_ADDR_BIG_PAGE(*pte) + PGOFF_BIG_PAGE(vm) : PTE_ADDR(*pte) + PGOFF(vm);
+			cprintf("VA:0x%08x\tPA:0x%08x\tW:%d U:%d\n", vm, pa, !!(*pte & PTE_W), !!(*pte & PTE_U));
 			only_show_once_flag = false;
 		} else if(!only_show_once_flag){
 			cprintf("VA:0x%08x\tPA:----------\tW:- U:-\n", vm);
