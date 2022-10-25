@@ -41,15 +41,72 @@
 	pushl $(num);							\
 	jmp _alltraps
 
+#define GEN_TRAPHANDLER_TEXT(num) \
+	TRAPHANDLER(handler##num, num)
+
+#define GEN_TRAPHANDLER_NOEC_TEXT(num) \
+	TRAPHANDLER_NOEC(handler##num, num)
+
+#define GEN_TRAPHANDLER_DATA(num) \
+	.long handler##num
+
+#define GEN_TRAPHANDLER_NOEC_DATA(num) \
+	.long handler##num
+
+#define TRAP_GENERATOR(type) \
+	GEN_TRAPHANDLER_NOEC_##type(0); \
+	GEN_TRAPHANDLER_NOEC_##type(1); \
+	GEN_TRAPHANDLER_NOEC_##type(2); \
+	GEN_TRAPHANDLER_NOEC_##type(3); \
+	GEN_TRAPHANDLER_NOEC_##type(4); \
+	GEN_TRAPHANDLER_NOEC_##type(5); \
+	GEN_TRAPHANDLER_NOEC_##type(6); \
+	GEN_TRAPHANDLER_NOEC_##type(7); \
+	GEN_TRAPHANDLER_##type(8); \
+	GEN_TRAPHANDLER_NOEC_##type(9); \
+	GEN_TRAPHANDLER_##type(10); \
+	GEN_TRAPHANDLER_##type(11); \
+	GEN_TRAPHANDLER_##type(12); \
+	GEN_TRAPHANDLER_##type(13); \
+	GEN_TRAPHANDLER_##type(14); \
+	GEN_TRAPHANDLER_NOEC_##type(15); \
+	GEN_TRAPHANDLER_NOEC_##type(16); \
+	GEN_TRAPHANDLER_##type(17); \
+	GEN_TRAPHANDLER_NOEC_##type(18); \
+	GEN_TRAPHANDLER_NOEC_##type(19); \
+
 .text
 
 /*
  * Lab 3: Your code here for generating entry points for the different traps.
  */
 
+TRAP_GENERATOR(TEXT)
+GEN_TRAPHANDLER_NOEC_TEXT(48) # T_SYSCALL
 
 
 /*
  * Lab 3: Your code here for _alltraps
  */
 
+_alltraps:
+	pushl %ds; \
+	pushl %es; \
+	pushal; \
+	movl $GD_KD, %eax; \
+	movl %eax, %ds; \
+	movl %eax, %es; \
+	pushl %esp; \
+	call trap
+spin:
+	jmp spin
+
+/*
+ * handler table
+ */
+
+.data
+	.p2align	2	# force 4 byte alignment
+	.globl		handlers	# make it a global variable				
+handlers:
+	TRAP_GENERATOR(DATA)

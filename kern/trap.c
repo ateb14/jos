@@ -65,6 +65,21 @@ trap_init(void)
 	extern struct Segdesc gdt[];
 
 	// LAB 3: Your code here.
+	extern uint32_t handlers[];
+	handlers[9] = 0; // reserved
+	handlers[15] = 0; // reserved
+	size_t i;
+	// 0xf0104413
+	// set the idt
+	for(i = 0; i < 20; ++i){
+		SETGATE(idt[i], 0, GD_KT, handlers[i], 0);
+	}
+	// reserved
+	for(i = 20; i < 32; ++i){
+		SETGATE(idt[i], 0, GD_KT, 0, 0);
+	}
+	// for breakpoint
+	SETGATE(idt[T_BRKPT], 0, GD_KT, handlers[T_BRKPT], 3);
 
 	// Per-CPU setup 
 	trap_init_percpu();
@@ -144,6 +159,16 @@ trap_dispatch(struct Trapframe *tf)
 {
 	// Handle processor exceptions.
 	// LAB 3: Your code here.
+	// 0xf01d4000
+	
+	switch(tf->tf_trapno){
+	case T_PGFLT:
+		page_fault_handler(tf);
+		return;
+	case T_BRKPT:
+		monitor(tf);
+		return;
+	}
 
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);
@@ -184,7 +209,6 @@ trap(struct Trapframe *tf)
 	// Record that tf is the last real trapframe so
 	// print_trapframe can print some additional information.
 	last_tf = tf;
-
 	// Dispatch based on what type of trap occurred
 	trap_dispatch(tf);
 
