@@ -66,6 +66,7 @@ trap_init(void)
 
 	// LAB 3: Your code here.
 	extern uint32_t handlers[];
+	extern void (* handler19)(void); // system call
 	handlers[9] = 0; // reserved
 	handlers[15] = 0; // reserved
 	size_t i;
@@ -80,6 +81,9 @@ trap_init(void)
 	}
 	// for breakpoint
 	SETGATE(idt[T_BRKPT], 0, GD_KT, handlers[T_BRKPT], 3);
+
+	// for system call
+	SETGATE(idt[T_SYSCALL], 1, GD_KT, handlers[20], 3);
 
 	// Per-CPU setup 
 	trap_init_percpu();
@@ -161,14 +165,23 @@ trap_dispatch(struct Trapframe *tf)
 	// LAB 3: Your code here.
 	// 0xf01d4000
 	
+	/* Using return stands for exiting normally */
 	switch(tf->tf_trapno){
 	case T_PGFLT:
 		page_fault_handler(tf);
 		return;
+	case T_DEBUG:
 	case T_BRKPT:
 		monitor(tf);
 		return;
+	case T_SYSCALL:{
+		int r = syscall(tf->tf_regs.reg_eax, tf->tf_regs.reg_edx, tf->tf_regs.reg_ecx,  
+		tf->tf_regs.reg_ebx, tf->tf_regs.reg_edi, tf->tf_regs.reg_esi);
+		tf->tf_regs.reg_eax = r;
+		return;
 	}
+	}
+	
 
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);

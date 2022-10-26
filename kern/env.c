@@ -289,15 +289,18 @@ region_alloc(struct Env *e, void *va, size_t len)
 	}
 
 	void * va_start = (void *)(ROUNDDOWN((uint32_t)va, PGSIZE));
-	void * va_end = (void *)(ROUNDDOWN((uint32_t)(va + len - 1), PGSIZE));
+	void * va_end = (void *)(ROUNDDOWN((uint32_t)(va) + len - 1, PGSIZE));
 	struct PageInfo *p;
 	int status = 0;
-	for(va = va_start; va <= va_end; va += PGSIZE){
+	void * va_pg_align = va_start;
+	// allocate pages, with the assumption that no two segments will touch
+	// the same virtual page.
+	for(; va_pg_align <= va_end; va_pg_align += PGSIZE){
 		p = page_alloc(0);
 		if(!p){
 			panic("region_alloc: allocation failed, out of memory!");
 		}
-		status = page_insert(e->env_pgdir, p, va, PTE_U | PTE_W);
+		status = page_insert(e->env_pgdir, p, va_pg_align, PTE_U | PTE_W);
 		if(status != 0){
 			panic("region_alloc: %e", status);
 		}
@@ -369,7 +372,7 @@ load_icode(struct Env *e, uint8_t *binary)
 	struct Proghdr *ph, *eph;
 	ph = (struct Proghdr *)((uint8_t *) binary + ((struct Elf *) binary)->e_phoff);
 	eph = ph + ((struct Elf *) binary)->e_phnum;
-
+	// panic("yazi");
 	for(; ph < eph; ++ph){
 		if(ph->p_type != ELF_PROG_LOAD){
 			continue;
@@ -379,11 +382,8 @@ load_icode(struct Env *e, uint8_t *binary)
 		}
 		region_alloc(e, (void *)ph->p_va, ph->p_memsz);
 		memcpy((void *)ph->p_va, binary + ph->p_offset, ph->p_filesz);
-		uint8_t *remaining_mem = binary + ph->p_offset;
-		for(; remaining_mem < binary + ph->p_memsz; ++remaining_mem){
-			*remaining_mem = 0;
-		}
-
+		// clear the bss field
+		memset((void *)(ph->p_va + ph->p_filesz), 0, ph->p_memsz - ph->p_filesz);
 	}
 	lcr3(PADDR(kern_pgdir));
 	e->env_tf.tf_eip = ((struct Elf *) binary)->e_entry;
@@ -491,7 +491,7 @@ void
 env_pop_tf(struct Trapframe *tf)
 {
 	asm volatile(
-		"\tmovl %0,%%esp\n"
+		"\tmovl %0,%%esp\n" // there is a pointer to tf stacked upon tf itself, restore it in esp
 		"\tpopal\n"
 		"\tpopl %%es\n"
 		"\tpopl %%ds\n"

@@ -42,16 +42,16 @@
 	jmp _alltraps
 
 #define GEN_TRAPHANDLER_TEXT(num) \
-	TRAPHANDLER(handler##num, num)
+	TRAPHANDLER(handler##num, num);
 
 #define GEN_TRAPHANDLER_NOEC_TEXT(num) \
-	TRAPHANDLER_NOEC(handler##num, num)
+	TRAPHANDLER_NOEC(handler##num, num);
 
 #define GEN_TRAPHANDLER_DATA(num) \
-	.long handler##num
+	.long handler##num;
 
 #define GEN_TRAPHANDLER_NOEC_DATA(num) \
-	.long handler##num
+	.long handler##num;
 
 #define TRAP_GENERATOR(type) \
 	GEN_TRAPHANDLER_NOEC_##type(0); \
@@ -110,3 +110,4 @@ spin:
 	.globl		handlers	# make it a global variable				
 handlers:
 	TRAP_GENERATOR(DATA)
+	GEN_TRAPHANDLER_NOEC_DATA(48) # T_SYSCALL // handlers[20], for convenience

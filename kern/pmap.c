@@ -431,7 +431,7 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 	pte_t *vpt;
 	pte_t *pte;
 	
-	if(!(pde & PTE_P)){ // The page table doesn't exist
+	if(!pde){ // The page table doesn't exist
 		if(create == false){
 			return NULL;
 		} else{ // allocate a physical page
@@ -444,8 +444,15 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 				++ page_pt->pp_ref;
 			}
 		}
-	} 
-	if(pde & PTE_PS){ // 4mB big page
+	}
+	
+	// ignore it, for the reference below will trigger a page fault
+	if(!(pde & PTE_P)){
+		;
+	}
+
+	// for huge page
+	if(pde & PTE_PS){
 		return (pte_t *)&pgdir[PDX(va)];
 	}
 
@@ -553,9 +560,17 @@ struct PageInfo *
 page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 {
 	pte_t *pte = pgdir_walk(pgdir, va, false);
-	if(!pte || !((*pte) & PTE_P)){
+	
+	// there is no page mapped at va yet
+	if(!pte){
 		return NULL;
 	}
+
+	// ignore it (in lab2 i mistakenly place it in the condition block above)
+	if(!((*pte) & PTE_P)){
+		; 
+	}
+	
 	if(pte_store){
 		*pte_store = pte;
 	}

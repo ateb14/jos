@@ -31,9 +31,37 @@ static struct Command commands[] = {
 	{ "sm", "Display the physical page mappings by pages", mon_showmappings},
 	{"spp", "Set the permissions of the selected mapping", mon_setpagepermission},
 	{"dump", "Dump the contents of a range of memory given either a virtual or physical address range", mon_dumppage},
+	{"si", "debug: step in", mon_stepin},
+	{"c", "debug: continue", mon_continue},
 };
 
 /***** Implementations of basic kernel monitor commands *****/
+
+int mon_stepin(int argc, char **argv, struct Trapframe *tf){
+	if(!tf){
+		cprintf("Debug mode can be turned on only when there is a trap!\n");
+		return 0;
+	}
+	if(tf->tf_trapno != T_BRKPT && tf->tf_trapno != T_DEBUG){
+		cprintf("The trap frame doesn't include a debug sign!\n");
+		return 0;
+	}
+	tf->tf_eflags |= FL_TF;
+	return -1; // kill the monitor
+}
+
+int mon_continue(int argc, char **argv, struct Trapframe *tf){
+	if(!tf){
+		cprintf("Debug mode can be turned on only when there is a trap!\n");
+		return 0;
+	}
+	if(tf->tf_trapno != T_BRKPT && tf->tf_trapno != T_DEBUG){
+		cprintf("The trap frame doesn't include a debug sign!\n");
+		return 0;
+	}
+	tf->tf_eflags &= ~FL_TF;
+	return -1;
+}
 
 int mon_dumppage(int argc, char **argv, struct Trapframe *tf){
 	if(argc <= 2){
