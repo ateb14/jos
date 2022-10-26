@@ -298,6 +298,9 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 		uint32_t *pebp = (uint32_t *)ebp;
 		eip = pebp[1];
 		for(int i=0;i<5;++i){
+			if ((uintptr_t)(pebp + i + 2) >= USTACKTOP){
+				break;
+			}
 			args[i] = pebp[2+i];
 		}
 		cprintf("ebp %08x  eip %08x  args %08x %08x %08x %08x %08x\n",ebp, eip, args[0], args[1], args[2], args[3], args[4]);

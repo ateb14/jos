@@ -32,7 +32,7 @@ sys_cputs(const char *s, size_t len)
 	}
 	// round down to page size for convenience and readability
 	begin = ROUNDDOWN(begin, PGSIZE);
-	end = ROUNDDOWN(begin, PGSIZE);
+	end = ROUNDDOWN(end, PGSIZE);
 	for(; begin <= end; begin += PGSIZE){
 		// mapping doesn't exist yet!
 		if(!page_lookup(curenv->env_pgdir, (void *)s, &pte)){ 
@@ -93,10 +93,16 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 	// LAB 3: Your code here.
 
 	switch (syscallno) {
-	case SYS_cputs: sys_cputs((char *) a1, (size_t) a2); return 0;
-	case SYS_cgetc:	return sys_cgetc();
-	case SYS_getenvid:	return sys_getenvid();
-	case SYS_env_destroy: return sys_env_destroy((envid_t) a1);
+	case SYS_cputs:
+		user_mem_assert(curenv, (void *) a1, (size_t) a2, PTE_U);
+		sys_cputs((char *) a1, (size_t) a2); 
+		return 0;
+	case SYS_cgetc:	
+		return sys_cgetc();
+	case SYS_getenvid:	
+		return sys_getenvid();
+	case SYS_env_destroy: 
+		return sys_env_destroy((envid_t) a1);
 	default:
 		return -E_INVAL;
 	}
