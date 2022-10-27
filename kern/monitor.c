@@ -42,6 +42,10 @@ int mon_stepin(int argc, char **argv, struct Trapframe *tf){
 		cprintf("Debug mode can be turned on only when there is a trap!\n");
 		return 0;
 	}
+	if((tf->tf_cs & 3) != 3){
+		cprintf("Debug mode can only be turned on due to a trap caused by a user environment!\n");
+		return 0;
+	}
 	if(tf->tf_trapno != T_BRKPT && tf->tf_trapno != T_DEBUG){
 		cprintf("The trap frame doesn't include a debug sign!\n");
 		return 0;
@@ -53,6 +57,10 @@ int mon_stepin(int argc, char **argv, struct Trapframe *tf){
 int mon_continue(int argc, char **argv, struct Trapframe *tf){
 	if(!tf){
 		cprintf("Debug mode can be turned on only when there is a trap!\n");
+		return 0;
+	}
+	if((tf->tf_cs & 3) != 3){
+		cprintf("Debug mode can only be turned on due to a trap caused by a user environment!\n");
 		return 0;
 	}
 	if(tf->tf_trapno != T_BRKPT && tf->tf_trapno != T_DEBUG){
