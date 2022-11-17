@@ -125,23 +125,38 @@ trap_init_percpu(void)
 	//
 	// LAB 4: Your code here:
 
-	// Setup a TSS so that we get the right stack
-	// when we trap to the kernel.
-	ts.ts_esp0 = KSTACKTOP;
-	ts.ts_ss0 = GD_KD;
-	ts.ts_iomb = sizeof(struct Taskstate);
+	// set up a tss for current cpu
+	size_t i = cpunum();
+	struct Taskstate * cur_ts = &thiscpu->cpu_ts;
+	cur_ts->ts_esp0 = KSTACKTOP - i * (KSTKSIZE + KSTKGAP);
+	cur_ts->ts_ss0 = GD_KD;
+	cur_ts->ts_iomb = sizeof(struct Taskstate); // why?
+
+	// TSS descriptor
+	gdt[(GD_TSS0 >> 3) + i] = SEG16(STS_T32A, (uint32_t) (cur_ts), sizeof(struct Taskstate) - 1, 0);
+	gdt[(GD_TSS0 >> 3) + i].sd_s = 0;
+
+	ltr(GD_TSS0 + (i << 3));
+	lidt(&idt_pd);
+
+
+	// // Setup a TSS so that we get the right stack
+	// // when we trap to the kernel.
+	// ts.ts_esp0 = KSTACKTOP;
+	// ts.ts_ss0 = GD_KD;
+	// ts.ts_iomb = sizeof(struct Taskstate);
 
 	// Initialize the TSS slot of the gdt.
-	gdt[GD_TSS0 >> 3] = SEG16(STS_T32A, (uint32_t) (&ts),
-					sizeof(struct Taskstate) - 1, 0);
-	gdt[GD_TSS0 >> 3].sd_s = 0;
+	// gdt[GD_TSS0 >> 3] = SEG16(STS_T32A, (uint32_t) (&ts),
+	// 				sizeof(struct Taskstate) - 1, 0);
+	// gdt[GD_TSS0 >> 3].sd_s = 0;
 
 	// Load the TSS selector (like other segment selectors, the
 	// bottom three bits are special; we leave them 0)
-	ltr(GD_TSS0);
+	// ltr(GD_TSS0);
 
-	// Load the IDT
-	lidt(&idt_pd);
+	// // Load the IDT
+	// lidt(&idt_pd);
 }
 
 void
@@ -264,6 +279,7 @@ trap(struct Trapframe *tf)
 		// Acquire the big kernel lock before doing any
 		// serious kernel work.
 		// LAB 4: Your code here.
+		lock_kernel();
 		assert(curenv);
 
 		// Garbage collect if current enviroment is a zombie
@@ -348,6 +364,44 @@ page_fault_handler(struct Trapframe *tf)
 
 	// LAB 4: Your code here.
 
+	if(!curenv->env_pgfault_upcall){
+		goto pgfault_error;
+	}
+	// assert the upcall
+	user_mem_assert(curenv, (void *)curenv->env_pgfault_upcall, 0, PTE_U);
+	// assert the user exception stack
+	user_mem_assert(curenv, (void *) UXSTACKTOP -PGSIZE, PGSIZE,  PTE_U | PTE_W);
+
+	uint32_t esp = tf->tf_esp;
+	uint32_t eip;
+	if(!(esp < UXSTACKTOP && esp >= UXSTACKTOP - PGSIZE)){
+		// from normal stack
+		// Should we allocate a new page? No! For it's the environment's duty!
+		esp = UXSTACKTOP - sizeof(struct UTrapframe);
+	} else {
+		// from exception stack
+		esp -= sizeof(struct UTrapframe) + 4;
+		// exception stack overflows
+		if(esp < UXSTACKTOP - PGSIZE){
+			goto pgfault_error;
+		}
+	}
+
+	// copy the trapframe
+	struct UTrapframe *utf = (struct UTrapframe *) esp;
+	utf->utf_fault_va = fault_va;
+	utf->utf_err = tf->tf_err;
+	utf->utf_regs = tf->tf_regs;
+	utf->utf_eip = tf->tf_eip;
+	utf->utf_eflags = tf->tf_eflags;
+	utf->utf_esp = tf->tf_esp;
+
+	// set the trap frame of the current environment
+	tf->tf_eip = (uint32_t) curenv->env_pgfault_upcall;
+	tf->tf_esp = esp;
+
+	return;
+pgfault_error:
 	// Destroy the environment that caused the fault.
 	cprintf("[%08x] user fault va %08x ip %08x\n",
 		curenv->env_id, fault_va, tf->tf_eip);

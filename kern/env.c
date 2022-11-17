@@ -384,7 +384,6 @@ load_icode(struct Env *e, uint8_t *binary)
 	struct Proghdr *ph, *eph;
 	ph = (struct Proghdr *)((uint8_t *) binary + ((struct Elf *) binary)->e_phoff);
 	eph = ph + ((struct Elf *) binary)->e_phnum;
-	// panic("yazi");
 	for(; ph < eph; ++ph){
 		if(ph->p_type != ELF_PROG_LOAD){
 			continue;
@@ -561,6 +560,8 @@ env_run(struct Env *e)
 	curenv->env_status = ENV_RUNNING;
 	curenv->env_runs += 1;
 	lcr3(PADDR(curenv->env_pgdir));
+
+	unlock_kernel();
 
 	env_pop_tf(&curenv->env_tf);
 }

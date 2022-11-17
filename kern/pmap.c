@@ -280,6 +280,10 @@ mem_init_mp(void)
 	//     Permissions: kernel RW, user NONE
 	//
 	// LAB 4: Your code here:
+	size_t i;
+	for(i = 0; i < NCPU; ++i){
+		boot_map_region(kern_pgdir, KSTACKTOP - i * (KSTKSIZE + KSTKGAP) - KSTKSIZE, KSTKSIZE, PADDR(percpu_kstacks[i]), PTE_W);
+	}
 
 }
 
@@ -327,20 +331,31 @@ page_init(void)
 	// }
 	
 	/* base memory */
+
 	pages[0].pp_ref = 1;
 	pages[0].pp_link = NULL;
 	size_t i;
-	for(i=1;i<npages_basemem; ++i){
-		pages[i].pp_ref = 0;
-		pages[i].pp_link = page_free_list;
-		page_free_list = &pages[i];
-	}
+
+	size_t pg_mpentrypaddr = MPENTRY_PADDR / PGSIZE;
+	size_t mp_mpentrypaddr_end = pg_mpentrypaddr + 1;
+
 	size_t io_hole_begin = IOPHYSMEM / PGSIZE;
 	size_t io_hole_end = EXTPHYSMEM / PGSIZE; // both are guaranteed to divided exactly by PGSIZE
-	for(i=io_hole_begin;i<io_hole_end;++i){
-		pages[i].pp_ref = 1;
-		pages[i].pp_link = NULL;
+
+	for(i=1;i<npages_basemem; ++i){
+		if(
+			(i >= pg_mpentrypaddr && i < mp_mpentrypaddr_end) || 
+			(i >= io_hole_begin && i < io_hole_end)
+			){
+				pages[i].pp_ref = 1;
+				pages[i].pp_link = NULL;
+			} else {
+				pages[i].pp_ref = 0;
+				pages[i].pp_link = page_free_list;
+				page_free_list = &pages[i];
+			}
 	}
+
 	/* extended memory
 	 * In pmap.h, the definition for PADDR(kva) says:
 	 * "an address that points above KERNBASE, 
@@ -686,7 +701,14 @@ mmio_map_region(physaddr_t pa, size_t size)
 	// Hint: The staff solution uses boot_map_region.
 	//
 	// Your code here:
-	panic("mmio_map_region not implemented");
+	size_t up_size = ROUNDUP(size, PGSIZE);
+	if (up_size + base > MMIOLIM){
+		panic("MMIOLIM overflows!\n");
+	}
+	boot_map_region(kern_pgdir, base, up_size, pa, PTE_PCD | PTE_PWT | PTE_W);
+	size_t old = base;
+	base += up_size;
+	return (void *) old;
 }
 
 static uintptr_t user_mem_check_addr;
@@ -935,6 +957,7 @@ check_kern_pgdir(void)
 	for (i = 0; i < npages * PGSIZE; i += PGSIZE){
 		assert(check_va2pa(pgdir, KERNBASE + i) == i);
 	}
+
 
 	// check kernel stack
 	// (updated in lab 4 to check per-CPU kernel stacks)
