@@ -20,7 +20,6 @@ sys_cputs(const char *s, size_t len)
 {
 	// Check that the user has permission to read memory [s, s+len).
 	// Destroy the environment if not.
-	
 	// It won't read anything, so just return
 	if(len == 0){
 		return;
@@ -205,7 +204,7 @@ sys_page_alloc(envid_t envid, void *va, int perm)
 		return -E_INVAL;
 	} 
 	// check the permission
-	if((PTE_SYSCALL | perm) != PTE_SYSCALL || !(perm | PTE_U) || !(perm | PTE_P)){
+	if((PTE_SYSCALL | perm) != PTE_SYSCALL || !(perm & PTE_U) || !(perm & PTE_P)){
 		return -E_INVAL;
 	}
 	// try to allocate a physical page
@@ -215,6 +214,7 @@ sys_page_alloc(envid_t envid, void *va, int perm)
 	}
 	// try to map the physical page we've just allocated
 	if((ret = page_insert(env->env_pgdir, pginfo, va, perm)) < 0 ){
+		page_free(pginfo);
 		return ret;
 	}
 	return 0;
@@ -263,7 +263,7 @@ sys_page_map(envid_t srcenvid, void *srcva,
 		return -E_INVAL;
 	}
 	// check the permission
-	if((PTE_SYSCALL | perm) != PTE_SYSCALL || !(perm | PTE_U) || !(perm | PTE_P)){
+	if((PTE_SYSCALL | perm) != PTE_SYSCALL || !(perm & PTE_U) || !(perm & PTE_P)){
 		return -E_INVAL;
 	}
 	// search for the mapping in the page tables of the source environment
@@ -273,7 +273,7 @@ sys_page_map(envid_t srcenvid, void *srcva,
 		return -E_INVAL;
 	}
 	// check the write permission
-	if(!((*pte) | PTE_W) && (perm | PTE_W)){
+	if(!((*pte) & PTE_W) && (perm & PTE_W)){
 		return -E_INVAL;
 	}
 	// try to copy the mapping

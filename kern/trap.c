@@ -368,9 +368,9 @@ page_fault_handler(struct Trapframe *tf)
 		goto pgfault_error;
 	}
 	// assert the upcall
-	user_mem_assert(curenv, (void *)curenv->env_pgfault_upcall, 0, PTE_U);
+	user_mem_assert(curenv, (void *)curenv->env_pgfault_upcall, 1, PTE_U);
 	// assert the user exception stack
-	user_mem_assert(curenv, (void *) UXSTACKTOP -PGSIZE, PGSIZE,  PTE_U | PTE_W);
+	user_mem_assert(curenv, (void *) (UXSTACKTOP - 1), 1,  PTE_U | PTE_W);
 
 	uint32_t esp = tf->tf_esp;
 	uint32_t eip;
