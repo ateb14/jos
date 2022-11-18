@@ -178,7 +178,7 @@ fork(void)
 			panic("fork: sys_env_set_status failed!");
 		}
 	} else {
-		panic("fork: sys_exofork error!");
+		panic("fork: sys_exofork error: %e", envid);
 	}
 	return envid;
 }
