@@ -428,6 +428,30 @@ sys_ipc_recv(void *dstva)
 	return 0;
 }
 
+
+// Set the priotity of the target env 'envid'
+// An env can only change the priority of itself or its children.
+// An env cannot assign a higher priority than that of itself.
+// return 0 on success.
+// return < 0 on error. Errors are:
+//	-E_BAD_ENV if environment envid doesn't currently exist,
+//		or the caller doesn't have permission to change envid.
+//	-E_INVAL if 'priority' is greater than the priority of the
+//		current env.
+static int
+sys_set_priority(envid_t envid, uint32_t priority){
+	struct Env * env;
+	int r = envid2env(envid, &env, 1);
+	if (r < 0 ){
+		return r;
+	}
+	if (curenv->env_priority < priority){
+		return -E_INVAL;
+	}
+	env->env_priority = priority;
+	return 0;
+}
+
 // Dispatches to the correct kernel function, passing the arguments.
 int32_t
 syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
@@ -466,6 +490,8 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		return sys_ipc_recv((void *) a1);
 	case SYS_ipc_try_send:
 		return sys_ipc_try_send((envid_t) a1, (uint32_t) a2, (void *) a3, (int) a4);
+	case SYS_set_priority:
+		return sys_set_priority((envid_t) a1, (uint32_t) a2);
 	default:
 		return -E_INVAL;
 	}

@@ -6,6 +6,32 @@
 
 void forktree(const char *cur);
 
+void sforktree(const char *cur);
+
+void
+sforkchild(const char *cur, char branch)
+{
+	char nxt[DEPTH+1];
+
+	if (strlen(cur) >= DEPTH)
+		return;
+
+	snprintf(nxt, DEPTH+1, "%s%c", cur, branch);
+	if (sfork() == 0) {
+		sforktree(nxt);
+		exit();
+	}
+}
+
+void
+sforktree(const char *cur)
+{
+	cprintf("%04x: I am '%s'\n", sys_getenvid(), cur);
+
+	sforkchild(cur, '0');
+	sforkchild(cur, '1');
+}
+
 void
 forkchild(const char *cur, char branch)
 {
@@ -33,6 +59,7 @@ forktree(const char *cur)
 void
 umain(int argc, char **argv)
 {
-	forktree("");
+	//forktree("");
+	sforktree("");
 }
 

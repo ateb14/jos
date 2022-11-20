@@ -11,8 +11,6 @@ void sched_halt(void);
 void
 sched_yield(void)
 {
-	struct Env *idle;
-
 	// Implement simple round-robin scheduling.
 	//
 	// Search through 'envs' for an ENV_RUNNABLE environment in
@@ -29,25 +27,42 @@ sched_yield(void)
 	// below to halt the cpu.
 
 	// LAB 4: Your code here.
+
+	// for fixed-priority scheduling
+	uint32_t max_prio = 0;
+	size_t run_pos = 0;
+	bool start_flag = false;
+
 	if(curenv){
 		size_t cur_env_idx = curenv - envs;
 		size_t i = (cur_env_idx + 1) % NENV;
+		max_prio = curenv->env_priority;
+		run_pos = cur_env_idx;
+
 		for(;i!=cur_env_idx; i = (i+1) % NENV){
-			if(envs[i].env_status == ENV_RUNNABLE){
-				env_run(&envs[i]);
-				break;
+			if(envs[i].env_status == ENV_RUNNABLE && envs[i].env_priority >= max_prio){
+				max_prio = envs[i].env_priority;
+				run_pos = i;
+				start_flag = true;
 			}
 		}
 	} else {
 		for(size_t i = 0;i<NENV;++i){
-			if(envs[i].env_status == ENV_RUNNABLE){
-				env_run(&envs[i]);
-				break;
+			if(envs[i].env_status == ENV_RUNNABLE && envs[i].env_priority >= max_prio){
+				max_prio = envs[i].env_priority;
+				run_pos = i;
+				start_flag = true;
 			}
 		}
 	}
 
-	if(curenv && curenv->env_status == ENV_RUNNING){
+	// Find a maximum-priority env
+	if(start_flag){
+		env_run(&envs[run_pos]);
+	}
+
+	// continue running the current env if no other envs are prior to it
+	if(!start_flag && curenv && curenv->env_status == ENV_RUNNING){
 		env_run(curenv);
 	}
 

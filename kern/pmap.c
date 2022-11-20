@@ -740,15 +740,18 @@ user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 	pte_t * pte;
 	uintptr_t page = start;
 	if (end >= ULIM){
+		cprintf("ULIM\n");
 		goto user_mem_check_error_handler;
 	}
 	for(; page <= end; page += PGSIZE){
 		// no mapping
 		if (!page_lookup(env->env_pgdir, (void *) page, &pte)){
+			cprintf("NOMAPPING\n");
 			goto user_mem_check_error_handler;
 		}
 		// permission violation
 		if (((*pte) & (perm | PTE_P )) != (perm | PTE_P)){
+			cprintf("PERMISSION\n");
 			goto user_mem_check_error_handler;
 		}
 	}

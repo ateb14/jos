@@ -135,14 +135,14 @@ duppage(envid_t envid, unsigned pn)
 //   so you must allocate a new page for the child's user exception stack.
 //
 envid_t
-fork(void)
+fork_but_block(void)
 {
 	// LAB 4: Your code here.
 	set_pgfault_handler(pgfault);
 	envid_t envid = sys_exofork();
 	if(envid == 0){
 		// child
-		thisenv = &envs[ENVX(sys_getenvid())];
+		// thisenv = &envs[ENVX(sys_getenvid())];
 	} else if(envid > 0){
 		// parent
 		size_t pg = 0;
@@ -173,6 +173,81 @@ fork(void)
 		if (sys_env_set_pgfault_upcall(envid, _pgfault_upcall) < 0){
 			panic("fork: sys_env_set_pgfault_upcall failed!");
 		}
+	
+	} else {
+		panic("fork: sys_exofork error: %e", envid);
+	}
+	return envid;
+}
+
+envid_t 
+fork(){
+	envid_t envid = fork_but_block();
+	if(envid <= 0){
+		return envid;
+	}
+
+	// make the child runnable
+	if (sys_env_set_status(envid, ENV_RUNNABLE) < 0){
+		panic("fork: sys_env_set_status failed!");
+	}
+
+	return envid;
+}
+
+// Challenge!
+int
+sfork(void)
+{
+	set_pgfault_handler(pgfault);
+	envid_t envid = sys_exofork();
+	if(envid == 0){
+		// child
+		// just skip
+	} else if(envid > 0){
+		// parent
+		size_t pg = 0;
+		int r;
+		while(pg < ((UXSTACKTOP - PGSIZE) / PGSIZE)){ // Below the user exception stack
+			// check the page directory
+			if(!(uvpd[pg / NPTENTRIES] & PTE_P)){
+				// skip the empty page table mapped from this directory entry
+				pg += NPTENTRIES;
+				continue;
+			}
+			// scan all the page table entries mapped from this directory entry
+			size_t end = pg + NPTENTRIES >= ((UXSTACKTOP - PGSIZE) / PGSIZE) ? ((UXSTACKTOP - PGSIZE) / PGSIZE) : pg + NPTENTRIES;
+			for(; pg < end; ++pg){
+				// skip the user normal stack
+				if(pg * PGSIZE == USTACKTOP - PGSIZE){
+					continue;
+				}
+				// simply copy the page table entry
+				if(uvpt[pg] & PTE_U && uvpt[pg] & PTE_P){
+					void * addr = (void *) (pg * PGSIZE);
+					int perm = uvpt[pg] & 0xfff & PTE_SYSCALL;
+					r = sys_page_map(0, addr, envid, addr, perm);
+					if (r < 0){
+						panic("sfork: %e", r);
+					}
+				}
+			}
+		}
+		// allocate a copy-on-write normal stack for the child
+		r = duppage(envid, (USTACKTOP - PGSIZE) / PGSIZE);
+		if(r < 0){
+			panic("sfork: %e", r);
+		}
+
+		// allocate a writable exception stack for the child
+		if (sys_page_alloc(envid, (void *) UXSTACKTOP - PGSIZE, PTE_W | PTE_U | PTE_P) < 0){
+			panic("fork: sys_page_alloc failed!");
+		}
+		// set the page fault upcall for the child
+		extern void _pgfault_upcall(void);
+		if (sys_env_set_pgfault_upcall(envid, _pgfault_upcall) < 0){
+			panic("fork: sys_env_set_pgfault_upcall failed!");
+		}
 		// make the child runnable
 		if (sys_env_set_status(envid, ENV_RUNNABLE) < 0){
 			panic("fork: sys_env_set_status failed!");
@@ -181,12 +256,4 @@ fork(void)
 		panic("fork: sys_exofork error: %e", envid);
 	}
 	return envid;
-}
-
-// Challenge!
-int
-sfork(void)
-{
-	panic("sfork not implemented");
-	return -E_INVAL;
 }
