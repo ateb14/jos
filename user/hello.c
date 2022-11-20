@@ -20,8 +20,4 @@ umain(int argc, char **argv)
 			panic("PRIOR: %e", r);
 		}
 	}
-	// wake up all the children
-	for(i = 0; i < 10; ++i){
-		sys_env_set_status(envid[i], ENV_RUNNABLE);
-	}
 }
