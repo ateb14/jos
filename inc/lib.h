@@ -23,12 +23,15 @@
 
 #define USED(x)		(void)(x)
 
+// we should dynamically get "thisenv"
+#define thisenv (&((struct Env *)UENVS)[ENVX(sys_getenvid())])
+
 // main user program
 void	umain(int argc, char **argv);
 
 // libmain.c or entry.S
 extern const char *binaryname;
-extern const volatile struct Env *thisenv;
+// extern const volatile struct Env *thisenv;
 extern const volatile struct Env envs[NENV];
 extern const volatile struct PageInfo pages[];
 
@@ -57,6 +60,7 @@ int	sys_page_map(envid_t src_env, void *src_pg,
 int	sys_page_unmap(envid_t env, void *pg);
 int	sys_ipc_try_send(envid_t to_env, uint32_t value, void *pg, int perm);
 int	sys_ipc_recv(void *rcv_pg);
+int sys_set_priority(envid_t envid, uint32_t priority);
 
 // This must be inlined.  Exercise for reader: why?
 static inline envid_t __attribute__((always_inline))
@@ -77,6 +81,7 @@ envid_t	ipc_find_env(enum EnvType type);
 // fork.c
 #define	PTE_SHARE	0x400
 envid_t	fork(void);
+envid_t fork_but_block(void);
 envid_t	sfork(void);	// Challenge!
 
 // fd.c

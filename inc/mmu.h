@@ -37,6 +37,7 @@
 
 // offset in page
 #define PGOFF(la)	(((uintptr_t) (la)) & 0xFFF)
+#define PGOFF_BIG_PAGE(la) (((uintptr_t) (la)) & 0x3FFFFF)
 
 // construct linear address from indexes and offset
 #define PGADDR(d, t, o)	((void*) ((d) << PDXSHIFT | (t) << PTXSHIFT | (o)))
@@ -74,6 +75,9 @@
 
 // Address in page table or page directory entry
 #define PTE_ADDR(pte)	((physaddr_t) (pte) & ~0xFFF)
+
+// Address in page directory, for 4mB big page
+#define PDE_ADDR_BIG_PAGE(pde)   ((physaddr_t) (pde) & ~0x3FFFFF)
 
 // Control Register flags
 #define CR0_PE		0x00000001	// Protection Enable

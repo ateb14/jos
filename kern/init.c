@@ -43,7 +43,8 @@ i386_init(void)
 
 	// Acquire the big kernel lock before waking up APs
 	// Your code here:
-
+	lock_kernel();
+	
 	// Starting non-boot CPUs
 	boot_aps();
 
@@ -62,6 +63,7 @@ i386_init(void)
 	kbd_intr();
 
 	// Schedule and run the first user environment!
+
 	sched_yield();
 }
 
@@ -101,9 +103,13 @@ boot_aps(void)
 void
 mp_main(void)
 {
+	// remember to modify cr4
+	uint32_t cr4 = rcr4();
+	cr4 |= CR4_PSE;
+	lcr4(cr4);
+
 	// We are in high EIP now, safe to switch to kern_pgdir 
 	lcr3(PADDR(kern_pgdir));
-	cprintf("SMP: CPU %d starting\n", cpunum());
 
 	lapic_init();
 	env_init_percpu();
@@ -115,9 +121,11 @@ mp_main(void)
 	// only one CPU can enter the scheduler at a time!
 	//
 	// Your code here:
+	lock_kernel();
+	sched_yield();
 
 	// Remove this after you finish Exercise 6
-	for (;;);
+	// for (;;);
 }
 
 /*

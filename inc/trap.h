@@ -80,11 +80,11 @@ struct UTrapframe {
 	uint32_t utf_err;
 	/* trap-time return state */
 	struct PushRegs utf_regs;
-	uintptr_t utf_eip;
-	uint32_t utf_eflags;
+	uintptr_t utf_eip; // 40
+	uint32_t utf_eflags; // 44
 	/* the trap-time stack to return to */
-	uintptr_t utf_esp;
-} __attribute__((packed));
+	uintptr_t utf_esp; // 48
+} __attribute__((packed)); // 52
 
 #endif /* !__ASSEMBLER__ */
 

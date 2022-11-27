@@ -25,6 +25,13 @@ pgfault(struct UTrapframe *utf)
 	//   (see <inc/memlayout.h>).
 
 	// LAB 4: Your code here.
+	// check the presence of the PTE
+	if(!(uvpd[PDX(addr)] & PTE_P) || !(uvpt[PGNUM(addr)]) & PTE_P){
+		panic("pgfault: invalid address %p, pde: %p, pte: %p", addr, uvpd[PDX(addr)], uvpt[PGNUM(addr)]);
+	}
+	if(!(err & FEC_WR && uvpt[PGNUM(addr)] & PTE_COW && uvpt[PGNUM(addr)] & PTE_U)){
+		panic("pgfault: permission violation!");
+	}
 
 	// Allocate a new page, map it at a temporary location (PFTEMP),
 	// copy the data from the old page to the new page, then move the new
@@ -34,7 +41,26 @@ pgfault(struct UTrapframe *utf)
 
 	// LAB 4: Your code here.
 
-	panic("pgfault not implemented");
+	// allocate a new page
+	int res = sys_page_alloc(0, (void *)PFTEMP, PTE_U | PTE_P | PTE_W );
+	if(res < 0){
+		panic("pgfault: out of memory!");
+	}
+	// copy the data
+	void * addr_pgalign = (void *) ROUNDDOWN(addr, PGSIZE);
+	memcpy((void *) PFTEMP, addr_pgalign, PGSIZE);
+
+	// remap
+	res = sys_page_map(0, (void *) PFTEMP, 0, addr_pgalign, PTE_U | PTE_P | PTE_W);
+	if(res < 0){
+		panic("pgfault: remap failed!");
+	}
+
+	// unmap the temporary mapping
+	res = sys_page_unmap(0, (void *) PFTEMP);
+	if(res < 0){
+		panic("pgfault: unmap failed!");
+	}
 }
 
 //
@@ -54,7 +80,41 @@ duppage(envid_t envid, unsigned pn)
 	int r;
 
 	// LAB 4: Your code here.
-	panic("duppage not implemented");
+	void * addr = (void *) (pn * PGSIZE);
+
+	assert((int32_t) addr < UXSTACKTOP - PGSIZE);
+
+	// check the presence of the PTE
+	if(!(uvpd[PDX(addr)] & PTE_P) || !(uvpt[PGNUM(addr)]) & PTE_P){
+		panic("duppage: invalid address %p", addr);
+	}
+	// check the permissions
+	if(!(uvpd[PDX(addr)] & PTE_U)){
+		panic("duppage: permission violation!");
+	}
+
+
+	int perm = 0;
+	if(uvpt[PGNUM(addr)] & PTE_W || uvpt[PGNUM(addr) & PTE_COW]){
+		// reset the permissions of the child
+		r = sys_page_map(0, addr, envid, addr, PTE_COW | PTE_P | PTE_U);
+		if(r < 0){
+			return r;
+		}
+
+		// reset the permissions of the current environment
+		r= sys_page_map(0, addr, 0, addr, PTE_COW | PTE_P | PTE_U);
+		if(r < 0){
+			return r;
+		}
+	} else {
+		// only reset the permissions of the child
+		r = sys_page_map(0, addr, envid, addr, PTE_P | PTE_U);
+		if(r < 0){
+			return r;
+		}
+	}
+
 	return 0;
 }
 
@@ -75,16 +135,125 @@ duppage(envid_t envid, unsigned pn)
 //   so you must allocate a new page for the child's user exception stack.
 //
 envid_t
-fork(void)
+fork_but_block(void)
 {
 	// LAB 4: Your code here.
-	panic("fork not implemented");
+	set_pgfault_handler(pgfault);
+	envid_t envid = sys_exofork();
+	if(envid == 0){
+		// child
+		// thisenv = &envs[ENVX(sys_getenvid())];
+	} else if(envid > 0){
+		// parent
+		size_t pg = 0;
+		while(pg < ((UXSTACKTOP - PGSIZE) / PGSIZE)){ // Below the user exception stack
+			// check the page directory
+			if(!(uvpd[pg / NPTENTRIES] & PTE_P)){
+				// skip the empty page table mapped from this directory entry
+				pg += NPTENTRIES;
+				continue;
+			}
+			// scan all the page table entries mapped from this directory entry
+			size_t end = pg + NPTENTRIES >= ((UXSTACKTOP - PGSIZE) / PGSIZE) ? ((UXSTACKTOP - PGSIZE) / PGSIZE) : pg + NPTENTRIES;
+			for(; pg < end; ++pg){
+				if(uvpt[pg] & PTE_U && uvpt[pg] & PTE_P){
+					int r = duppage(envid, pg);
+					if(r < 0){
+						panic("fork: duppage error!");
+					}
+				}
+			}
+		}
+		// allocate an exception stack for the child
+		if (sys_page_alloc(envid, (void *) UXSTACKTOP - PGSIZE, PTE_W | PTE_U | PTE_P) < 0){
+			panic("fork: sys_page_alloc failed!");
+		}
+		// set the page fault upcall for the child
+		extern void _pgfault_upcall(void);
+		if (sys_env_set_pgfault_upcall(envid, _pgfault_upcall) < 0){
+			panic("fork: sys_env_set_pgfault_upcall failed!");
+		}
+	
+	} else {
+		panic("fork: sys_exofork error: %e", envid);
+	}
+	return envid;
+}
+
+envid_t 
+fork(){
+	envid_t envid = fork_but_block();
+	if(envid <= 0){
+		return envid;
+	}
+
+	// make the child runnable
+	if (sys_env_set_status(envid, ENV_RUNNABLE) < 0){
+		panic("fork: sys_env_set_status failed!");
+	}
+
+	return envid;
 }
 
 // Challenge!
 int
 sfork(void)
 {
-	panic("sfork not implemented");
-	return -E_INVAL;
+	set_pgfault_handler(pgfault);
+	envid_t envid = sys_exofork();
+	if(envid == 0){
+		// child
+		// just skip
+	} else if(envid > 0){
+		// parent
+		size_t pg = 0;
+		int r;
+		while(pg < ((UXSTACKTOP - PGSIZE) / PGSIZE)){ // Below the user exception stack
+			// check the page directory
+			if(!(uvpd[pg / NPTENTRIES] & PTE_P)){
+				// skip the empty page table mapped from this directory entry
+				pg += NPTENTRIES;
+				continue;
+			}
+			// scan all the page table entries mapped from this directory entry
+			size_t end = pg + NPTENTRIES >= ((UXSTACKTOP - PGSIZE) / PGSIZE) ? ((UXSTACKTOP - PGSIZE) / PGSIZE) : pg + NPTENTRIES;
+			for(; pg < end; ++pg){
+				// skip the user normal stack
+				if(pg * PGSIZE == USTACKTOP - PGSIZE){
+					continue;
+				}
+				// simply copy the page table entry
+				if(uvpt[pg] & PTE_U && uvpt[pg] & PTE_P){
+					void * addr = (void *) (pg * PGSIZE);
+					int perm = uvpt[pg] & 0xfff & PTE_SYSCALL;
+					r = sys_page_map(0, addr, envid, addr, perm);
+					if (r < 0){
+						panic("sfork: %e", r);
+					}
+				}
+			}
+		}
+		// allocate a copy-on-write normal stack for the child
+		r = duppage(envid, (USTACKTOP - PGSIZE) / PGSIZE);
+		if(r < 0){
+			panic("sfork: %e", r);
+		}
+
+		// allocate a writable exception stack for the child
+		if (sys_page_alloc(envid, (void *) UXSTACKTOP - PGSIZE, PTE_W | PTE_U | PTE_P) < 0){
+			panic("fork: sys_page_alloc failed!");
+		}
+		// set the page fault upcall for the child
+		extern void _pgfault_upcall(void);
+		if (sys_env_set_pgfault_upcall(envid, _pgfault_upcall) < 0){
+			panic("fork: sys_env_set_pgfault_upcall failed!");
+		}
+		// make the child runnable
+		if (sys_env_set_status(envid, ENV_RUNNABLE) < 0){
+			panic("fork: sys_env_set_status failed!");
+		}
+	} else {
+		panic("fork: sys_exofork error: %e", envid);
+	}
+	return envid;
 }
