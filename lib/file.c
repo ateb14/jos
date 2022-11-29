@@ -142,6 +142,7 @@ devfile_write(struct Fd *fd, const void *buf, size_t n)
 	// bytes than requested.
 	// LAB 5: Your code here
 	int r;
+	
 	n = MIN(n, sizeof(fsipcbuf.write.req_buf));
 	
 	// generate the request

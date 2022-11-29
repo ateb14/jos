@@ -155,9 +155,9 @@ file_block_walk(struct File *f, uint32_t filebno, uint32_t **ppdiskbno, bool all
 			if(!alloc)
 				return -E_NOT_FOUND;
 			int bn = alloc_block();
-			if(bn < 0)
+			if(bn<0)
 				return bn;
-			f->f_indirect = bn;
+			f->f_indirect = (uint32_t) bn;
 			memset(diskaddr(bn), 0, BLKSIZE);
 		}
 		uint32_t *arr = (uint32_t*) diskaddr(f->f_indirect);
@@ -189,7 +189,7 @@ file_get_block(struct File *f, uint32_t filebno, char **blk)
 		r = alloc_block();
 		if(r<0)
 			return r;
-		*ppdiskbno = r;
+		*ppdiskbno = (uint32_t) r;
 	}
 
 	*blk = (char *) diskaddr(*ppdiskbno);
@@ -378,7 +378,7 @@ file_read(struct File *f, void *buf, size_t count, off_t offset)
 		pos += bn;
 		buf += bn;
 	}
-	// cprintf("%x\n", count);
+
 	return count;
 }
 

@@ -221,12 +221,12 @@ serve_read(envid_t envid, union Fsipc *ipc)
 		return r;
 	}
 	// try to read
-	r = file_read(op->o_file, ret, req->req_n, op->o_fd->fd_offset);
+	r = file_read(op->o_file, ret->ret_buf, req->req_n, op->o_fd->fd_offset);
 	if(r < 0){
 		return r;
 	}
 	// update the seek position in the fd
-	cprintf("%x %x\n", r, req->req_n);
+	// cprintf("%x %x\n", r, req->req_n);
 	op->o_fd->fd_offset += r;
 	return r;
 }

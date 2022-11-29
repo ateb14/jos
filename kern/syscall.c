@@ -162,10 +162,10 @@ sys_env_set_trapframe(envid_t envid, struct Trapframe *tf)
 	env->env_tf = *tf;
 	tf = &env->env_tf;
 
-	tf->tf_cs |= 3;
-	tf->tf_ds |= 3;
-	tf->tf_es |= 3;
-	tf->tf_ss |= 3;
+	tf->tf_cs |= 3 | GD_UT;
+	tf->tf_ds |= 3 | GD_UD;
+	tf->tf_es |= 3 | GD_UD;
+	tf->tf_ss |= 3 | GD_UD;
 
 	tf->tf_eflags |= FL_IF;
 	tf->tf_eflags &= ~FL_IOPL_MASK;

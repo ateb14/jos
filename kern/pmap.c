@@ -417,6 +417,7 @@ page_alloc(int alloc_flags)
 		memset(page2kva(res), 0, PGSIZE);
 	}
 	// cprintf("%x\n",res);
+	assert(!res->pp_link);
 	return res;
 }
 
@@ -589,6 +590,7 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 	}
 	physaddr_t phy_pp = page2pa(pp);
 	++pp->pp_ref; // needed to be done before page_remove, or page_remove may free pp
+	assert(!pp->pp_link);
 	if(*pte & PTE_P){
 		page_remove(pgdir, va);
 	}
@@ -617,9 +619,8 @@ page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 		return NULL;
 	}
 
-	// ignore it (in lab2 i mistakenly place it in the condition block above)
 	if(!((*pte) & PTE_P)){
-		; 
+		return NULL;
 	}
 	
 	if(pte_store){

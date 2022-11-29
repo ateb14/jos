@@ -1,7 +1,7 @@
 #include <inc/lib.h>
 
 #define BUFSIZ 1024		/* Find the buffer overrun bug! */
-int debug = 0;
+int debug = 1;
 
 
 // gettoken(s, 0) prepares gettoken for subsequent calls and returns 0.
@@ -55,6 +55,7 @@ again:
 			// then close the original 'fd'.
 
 			// LAB 5: Your code here.
+			
 			if ((fd = open(t, O_RDONLY)) < 0) {
 				cprintf("open %s for read: %e", t, fd);
 				exit();
