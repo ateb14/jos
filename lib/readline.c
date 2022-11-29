@@ -9,7 +9,7 @@ readline(const char *prompt)
 {
 	int i, c, echoing;
 
-	back_to_default_color();
+	// back_to_default_color();
 
 #if JOS_KERNEL
 	if (prompt != NULL)
