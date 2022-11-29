@@ -93,9 +93,15 @@ duppage(envid_t envid, unsigned pn)
 		panic("duppage: permission violation!");
 	}
 
-
-	int perm = 0;
-	if(uvpt[PGNUM(addr)] & PTE_W || uvpt[PGNUM(addr) & PTE_COW]){
+	if(uvpt[PGNUM(addr)] & PTE_SHARE){
+		// shared
+		r = sys_page_map(0, addr, envid, addr, uvpt[PGNUM(addr)] & PTE_SYSCALL);
+		if(r < 0){
+			return r;
+		}
+	}
+	else if(uvpt[PGNUM(addr)] & PTE_W || uvpt[PGNUM(addr) & PTE_COW]){
+		// COW
 		// reset the permissions of the child
 		r = sys_page_map(0, addr, envid, addr, PTE_COW | PTE_P | PTE_U);
 		if(r < 0){
@@ -103,7 +109,7 @@ duppage(envid_t envid, unsigned pn)
 		}
 
 		// reset the permissions of the current environment
-		r= sys_page_map(0, addr, 0, addr, PTE_COW | PTE_P | PTE_U);
+		r = sys_page_map(0, addr, 0, addr, PTE_COW | PTE_P | PTE_U);
 		if(r < 0){
 			return r;
 		}

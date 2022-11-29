@@ -302,6 +302,25 @@ static int
 copy_shared_pages(envid_t child)
 {
 	// LAB 5: Your code here.
+	size_t pg = 0;
+	while(pg < UTOP / PGSIZE){
+		// check the page directory
+		if(!(uvpd[pg / NPTENTRIES] & PTE_P)){
+			// skip the empty page table mapped from this directory entry
+			pg += NPTENTRIES;
+			continue;
+		}
+		// scan all the page table entries mapped from this directory entry
+		size_t end = pg + NPTENTRIES >= (UTOP / PGSIZE) ? (UTOP / PGSIZE) : pg + NPTENTRIES;
+		for(; pg < end; ++pg){
+			if(uvpt[pg] & PTE_U && uvpt[pg] & PTE_P && uvpt[pg] & PTE_SHARE){
+				int r = sys_page_map(0, (void *) (pg * PGSIZE), child, (void *) (pg * PGSIZE), uvpt[pg] & PTE_SYSCALL);
+				if(r < 0){
+					panic("sys_page_map: %e", r);
+				}
+			}
+		}
+	}
 	return 0;
 }
 

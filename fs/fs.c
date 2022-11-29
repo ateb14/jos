@@ -378,7 +378,7 @@ file_read(struct File *f, void *buf, size_t count, off_t offset)
 		pos += bn;
 		buf += bn;
 	}
-
+	// cprintf("%x\n", count);
 	return count;
 }
 

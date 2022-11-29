@@ -226,6 +226,7 @@ serve_read(envid_t envid, union Fsipc *ipc)
 		return r;
 	}
 	// update the seek position in the fd
+	cprintf("%x %x\n", r, req->req_n);
 	op->o_fd->fd_offset += r;
 	return r;
 }

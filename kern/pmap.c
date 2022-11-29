@@ -349,7 +349,7 @@ page_init(void)
 			(i >= pg_mpentrypaddr && i < mp_mpentrypaddr_end) || 
 			(i >= io_hole_begin && i < io_hole_end)
 			){
-				pages[i].pp_ref = 1;
+				pages[i].pp_ref = 0;
 				pages[i].pp_link = NULL;
 			} else {
 				pages[i].pp_ref = 0;
@@ -371,7 +371,7 @@ page_init(void)
 	size_t pg_pages_end = PADDR(boot_alloc(0)) / PGSIZE;
 	//cprintf("%x\n%x %x", PADDR(kern_pgdir), PADDR(pages), PADDR(boot_alloc(0)));
 	for(i=io_hole_end;i<pg_kern_pgdir_end;++i){
-		pages[i].pp_ref = 1;
+		pages[i].pp_ref = 0;
 		pages[i].pp_link = NULL;
 	}
 	for(i=pg_kern_pgdir_end;i<pg_pages;++i){
@@ -380,7 +380,7 @@ page_init(void)
 		page_free_list = &pages[i];
 	}
 	for(i=pg_pages;i<pg_pages_end;++i){
-		pages[i].pp_ref = 1;
+		pages[i].pp_ref = 0;
 		pages[i].pp_link = NULL;
 	}
 	for(i=pg_pages_end;i<npages;++i){
