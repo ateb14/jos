@@ -89,6 +89,7 @@ int	close(int fd);
 ssize_t	read(int fd, void *buf, size_t nbytes);
 ssize_t	write(int fd, const void *buf, size_t nbytes);
 int	seek(int fd, off_t offset);
+int seek_to_end(int fdnum);
 void	close_all(void);
 ssize_t	readn(int fd, void *buf, size_t nbytes);
 int	dup(int oldfd, int newfd);
@@ -127,6 +128,7 @@ void	wait(envid_t env);
 #define	O_WRONLY	0x0001		/* open for writing only */
 #define	O_RDWR		0x0002		/* open for reading and writing */
 #define	O_ACCMODE	0x0003		/* mask for above modes */
+#define O_APPEND 	0x0004 		/* append to the end */
 
 #define	O_CREAT		0x0100		/* create if nonexistent */
 #define	O_TRUNC		0x0200		/* truncate to zero length */

@@ -85,7 +85,16 @@ open(const char *path, int mode)
 		return r;
 	}
 
-	return fd2num(fd);
+	int fdnum = fd2num(fd);
+
+	if(mode & O_APPEND){
+		struct Stat stat;
+		if((r = fstat(fdnum, &stat))<0)
+			return r;
+		fd->fd_offset += stat.st_size;
+	}
+
+	return fdnum;
 }
 
 // Flush the file descriptor.  After this the fileid is invalid.

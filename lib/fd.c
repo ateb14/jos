@@ -269,6 +269,19 @@ seek(int fdnum, off_t offset)
 }
 
 int
+seek_to_end(int fdnum){
+	int r;
+	struct Fd *fd;
+	struct Stat stat;
+	if((r = fstat(fdnum, &stat))<0)
+		return r;
+	if ((r = fd_lookup(fdnum, &fd)) < 0)
+		return r;
+	fd->fd_offset = stat.st_size;
+	return 0;
+}
+
+int
 ftruncate(int fdnum, off_t newsize)
 {
 	int r;

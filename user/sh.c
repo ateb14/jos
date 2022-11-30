@@ -27,6 +27,15 @@ runcmd(char* s)
 	pipe_child = 0;
 	gettoken(s, 0);
 
+	// record the command-line history
+
+	int history = open("HISTORY", O_RDWR | O_CREAT | O_APPEND);
+	if(history < 0){
+		cprintf("Record history failed: %e", history);
+	}
+	write(history, s, strlen(s));
+	write(history, "\n", 1);
+
 again:
 	argc = 0;
 	while (1) {
