@@ -3,6 +3,7 @@
 #define BUFSIZ 1024		/* Find the buffer overrun bug! */
 int debug = 0;
 
+#define COM_HISTORY 0
 
 // gettoken(s, 0) prepares gettoken for subsequent calls and returns 0.
 // gettoken(0, token) parses a shell token from the previously set string,
@@ -11,6 +12,14 @@ int debug = 0;
 // Subsequent calls to 'gettoken(0, token)' will return subsequent
 // tokens from the string.
 int gettoken(char *s, char **token);
+
+void record_history(char *s){
+	int history = open("HISTORY", O_RDWR | O_CREAT | O_APPEND);
+	if(history >= 0){
+		write(history, s, strlen(s));
+		write(history, "\n", 1);
+	}
+}
 
 
 // Parse a shell command from string 's' and execute it.
@@ -28,13 +37,9 @@ runcmd(char* s)
 	gettoken(s, 0);
 
 	// record the command-line history
-
-	int history = open("HISTORY", O_RDWR | O_CREAT | O_APPEND);
-	if(history < 0){
-		cprintf("Record history failed: %e", history);
-	}
-	write(history, s, strlen(s));
-	write(history, "\n", 1);
+#if COM_HISTORY == 1
+	record_history(s);
+#endif
 
 again:
 	argc = 0;
